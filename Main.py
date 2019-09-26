@@ -5,9 +5,9 @@ import matplotlib.pyplot as plt
 
 DEBUG = 1
 
-def print_all(data,columns):
-    with pd.option_context('display.max_rows', None, 'display.max_columns', None):  # more options can be specified also
-        print(data[columns])
+def print_all(data):
+    with pd.option_context('display.max_rows', 10, 'display.max_columns', None):  # more options can be specified also
+        print(data[:])
 
 def main():
 
@@ -15,15 +15,17 @@ def main():
     headings = training_data.columns
     
     if DEBUG:
-        print(training_data.info())
-        print(training_data)
+        print("Headings={}".format(headings))
+        #print("{}".format(training_data.info()))
+        print_all(training_data)
+
 
     income = training_data["Income in EUR"]
    
     age = training_data["Age"]
     mean_income = income.mean()
 
-    print("Mean income =", mean_income)
+    #print("Mean income =", mean_income)
 
 
 
