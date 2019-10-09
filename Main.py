@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 submission_file = "tcd ml 2019-20 income prediction submission file.csv"
 
 
-
+#pd.set_option('display.max_rows', None)
 
 WRITE = 0
 
@@ -25,61 +25,91 @@ def check_for_nulls(df):
 
 def preprocess_data(data):
 
-
-
     #----- Processing Year -----
     X = data["Year of Record"].values.reshape(-1, 1)
-    imputer = SimpleImputer(strategy="mean")
-    data["Year of Record"] = imputer.fit_transform(X)
+    year_imputer = SimpleImputer(strategy="mean")
+    data["Year of Record"] = year_imputer.fit_transform(X)
+
 
     #----- Processing Univeristy Degree -----
     X = data["University Degree"].values.reshape(-1, 1)
-    imputer = SimpleImputer(strategy="constant", fill_value="No")
-    data["University Degree"] = imputer.fit_transform(X)
+    uni_imputer = SimpleImputer(strategy="constant", fill_value="No") #Imputer for empty cells
+    X = uni_imputer.fit_transform(X)
+    uni_imputer = SimpleImputer(missing_values="0",
+                                strategy="constant",  
+                                fill_value="No")#Imputer for 0 cells
+                                
+    data["University Degree"] = uni_imputer.fit_transform(X)
 
-    #----- Processing -----
+    uni_labelencoder = LabelEncoder()
+    data["University Degree"] = uni_labelencoder.fit_transform(data["University Degree"])
+    
+    
+    #----- Processing Hair-----
     X = data["Hair Color"].values.reshape(-1 ,1)
-    imputer = SimpleImputer(strategy="constant", fill_value="Other")
-    data["Hair Color"] = imputer.fit_transform(X)
+    hair_imputer = SimpleImputer(strategy="constant", fill_value="Other")#Imputer for empty cells
+    X = hair_imputer.fit_transform(X)
+    hair_imputer = SimpleImputer(missing_values="0",
+                                strategy="constant", 
+                                fill_value="Other")#Imputer for 0 cells
+
+    X = hair_imputer.fit_transform(X)
+    hair_imputer = SimpleImputer(missing_values="Unknown",
+                                strategy="constant", 
+                                fill_value="Other")#Imputer for "Unknown" cells
+
+    X = hair_imputer.fit_transform(X)
+    data["Hair Color"] = X    
+    
+    encoded_hair = pd.get_dummies(data["Hair Color"], prefix='hair') 
+    data.drop("Hair Color", axis=1, inplace = True)
+    data = pd.concat([data,encoded_hair], axis=1)
 
     #----- Processing Profession ----- 
     #Most frequent takes too long, forward fill instead
     data["Profession"] = data["Profession"].fillna("Ffill")
-    #X = data["Profession"].values.reshape(-1,1)
-    #imputer = SimpleImputer(strategy="most_frequent")
-    #data["Profession"] = imputer.fit_transform(X)
+
 
     #----- Processing Gender -----
     X = data["Gender"].values.reshape(-1, 1)
-    X.replace("unknown","other",inplace=False)
-    imputer = SimpleImputer(strategy="most_frequent")
-    data["Gender"] = imputer.fit_transform(X)
+    gender_imputer = SimpleImputer(strategy="most_frequent")#Imputer for empty cells
+
+    X = gender_imputer.fit_transform(X)
+
+    gender_imputer = SimpleImputer(missing_values="unknown", 
+                                    strategy="most_frequent")#Imputer for "unknown cells"
+
+    X = gender_imputer.fit_transform(X)
+
+    gender_imputer = SimpleImputer(missing_values="0", 
+                                    strategy="most_frequent")#Imputer for 0 cell
+
+    X = gender_imputer.fit_transform(X)
+    data["Gender"] = X
+   
+    #print(data["Gender"].unique())
+    encoded_gender = pd.get_dummies(data["Gender"], prefix='gender') 
+    data.drop("Gender", axis=1, inplace = True)
+    data = pd.concat([data,encoded_gender], axis=1)
 
 
     #----- Processing Age -----
     X = data["Age"].values.reshape(-1, 1)
-    imputer = SimpleImputer(strategy="median")
-    data["Age"] = imputer.fit_transform(X)
+    age_imputer = SimpleImputer(strategy="median")
+    data["Age"] = age_imputer.fit_transform(X)
 
 
     #----- Processing Height -----
     X = data["Body Height [cm]"].values.reshape(-1, 1)
-    imputer=SimpleImputer(strategy="mean")
-    data["Body Height [cm]"] = imputer.fit_transform(X)
+    height_imputer=SimpleImputer(strategy="mean")
+    data["Body Height [cm]"] = height_imputer.fit_transform(X)
 
-
-    #scaler = StandardScaler().fit(X)
-    #data["Body Height [cm]"] = scaler.fit_transform(X)
+    #print(data["Gender"])
 
     #----- Processing city size -----
     #X = data["Size of City"].values.reshape(-1, 1)
     #scaler = Normalizer().fit(X)
     #data["Size of City"] = scaler.fit_transform(X)
-
-    #------ Processing Income -----
-    #X = data["Income in EUR"].values.reshape(-1, 1)
-    #scaler = Normalizer().fit(X)
-    #data["Income in EUR"] = scaler.fit_transform(X)
 
     return data
 
