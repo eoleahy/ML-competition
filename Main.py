@@ -12,7 +12,7 @@ import category_encoders as ce
 submission_file = "tcd ml 2019-20 income prediction submission file.csv"
 
 
-#pd.set_option('display.max_rows', None)
+pd.set_option('display.max_rows', None)
 pd.set_option('display.max_columns', None)
 
 training_income=""
@@ -30,9 +30,7 @@ def check_for_nulls(df):
 
 def preprocess_data(data):
     
-    target_key = data.columns[-1]
     
-    #print("TRAINING INCOME {}".format(training_income))
 
     #----- Processing Year -----
     X = data["Year of Record"].values.reshape(-1, 1)
@@ -74,21 +72,6 @@ def preprocess_data(data):
     data.drop("Hair Color", axis=1, inplace = True)
     data = pd.concat([data,encoded_hair], axis=1)
 
-
-    #----- Processing Profession ----- 
-    #Most frequent takes too long, forward fill instead
-    data["Profession"] = data["Profession"].fillna("Ffill")
-    
-    #Target encoding profession and country
-    data1 = data.drop(target_key, axis = 1)
-    ce_target = ce.TargetEncoder(cols=['Profession','Country'])
-
-    #print(training_income)
-    ce_target.fit(data1, training_income)
-    data1 = ce_target.transform(data1, training_income)
-    print(data1)
-    data = pd.concat([data1, data[target_key]], axis = 1)
-
     #----- Processing Gender -----
     X = data["Gender"].values.reshape(-1, 1)
     gender_imputer = SimpleImputer(strategy="most_frequent")#Imputer for empty cells
@@ -123,33 +106,46 @@ def preprocess_data(data):
     height_imputer=SimpleImputer(strategy="mean")
     data["Body Height [cm]"] = height_imputer.fit_transform(X)
 
+
+    #----- Processing Profession & Country ----- 
+    #Most frequent takes too long, forward fill instead
+    data["Profession"] = data["Profession"].fillna("Ffill")
+    data["Country"] = data["Country"].fillna("Ffill")
+
     #print(data)
 
     return data
 
-def train(X, y):
+def targEncode(training, test, target):
 
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
+    #Target encoding profession and country
+   # Income
+    
+    training1 = training.drop("Income in EUR", axis = 1)
 
-    #scaler = StandardScaler().fit(X_train)
-    #X_train = scaler.fit_transform(X_train)
-    #X_test = scaler.transform(X_test)
+    ce_target = ce.TargetEncoder(return_df=True)
+    ce_target.fit(training1, target)
+    training1 = ce_target.transform(training1, target)
+    training = pd.concat([training1, target], axis =1)
+    
+    test1 = test.drop("Income", axis = 1)
 
-    regressor = LinearRegression()
-    regressor.fit(X_train,y_train)
+    test1 = ce_target.transform(test1, target[:73230])
+    test = pd.concat([test1, test["Income"]], axis = 1)
 
-    #print("Correlation between age and income = {}".format(regressor.coef_))
+    #print(training)
+    scaler = Normalizer()
+    training["Profession"] = scaler.fit_transform(training["Profession"].values.reshape(-1,1))
+    test["Profession"] = scaler.fit_transform(test["Profession"].values.reshape(-1,1))
 
-    y_pred = cross_val_predict(regressor,X_test, y_test,cv=10)
-    #y_pred = regressor.predict(X_train)
+    scaler = Normalizer()
+    training["Country"] = scaler.fit_transform(training["Country"].values.reshape(-1,1))
+    test["Country"] = scaler.fit_transform(test["Country"].values.reshape(-1, 1))
 
-    #print(y_pred)
-    print('Mean Squared Error:', metrics.mean_squared_error(y_test, y_pred))  
-    print('Root Mean Squared Error:', np.sqrt(metrics.mean_squared_error(y_test, y_pred)))
+    
+    return(training, test)
 
-    return y_pred
-
-def multi_train(X, y):
+def multi_train(X, y, X_submit):
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
 
@@ -161,39 +157,56 @@ def multi_train(X, y):
     regressor = LinearRegression()
     regressor.fit(X_train, y_train)
 
-    y_pred = cross_val_predict(regressor,X_test, y_test,cv=10)
+    '''
+    y_pred = cross_val_predict(regressor, X_test, y_test,cv=10)
     #y_pred = regressor.predict(X_test)
     print('Mean Squared Error:', metrics.mean_squared_error(y_test, y_pred))  
     print('Root Mean Squared Error:', np.sqrt(metrics.mean_squared_error(y_test, y_pred)))
+    '''
 
-    return y_pred
+
+    scaler = Normalizer()
+    X_submit1 = scaler.fit_transform(X_submit)
+
+    y_pred1 = regressor.predict(X_submit1)
+
+    print("Submission test: ")
+    print('Mean Squared Error:', metrics.mean_squared_error(y[:73230], y_pred1))  
+    print('Root Mean Squared Error:', np.sqrt(metrics.mean_squared_error(y[:73230], y_pred1)))
+    
+    return y_pred1
 
 def main():
 
     #headings = training_data.columns
     training_data = pd.read_csv("training.csv", index_col="Instance")
     submission_data = pd.read_csv("test.csv", index_col="Instance")
-    global training_income
-    training_income = training_data["Income in EUR"]
     #check_for_nulls(submission_data)
     processed_training_data = preprocess_data(training_data)
-    training_income = training_income[:73230]
     processed_submission_data = preprocess_data(submission_data)
+
+    processed_training_data, processed_submission_data = targEncode(
+                                                        processed_training_data, 
+                                                        processed_submission_data, 
+                                                        processed_training_data["Income in EUR"])
+
     #check_for_nulls(processed_submission_data)
     #print(processed_submission_data)
 
     #-------------Start of the actual training --------------- 
 
-
-    X = processed_training_data.values
     y = processed_training_data["Income in EUR"].values
-    y_pred = multi_train(X, y)
+    X = (processed_training_data.drop("Income in EUR", axis = 1)).values
+    X_submit = (processed_submission_data.drop("Income", axis = 1))
+
+    #print(X_submit)
+    y_pred = multi_train(X, y, X_submit.values)
 
 
     if(WRITE):
         submission_data = pd.read_csv(submission_file, index_col="Instance")
         submission_data["Income"] = y_pred
-        print(submission_data)
+        #print(submission_data)
         submission_data.to_csv(submission_file)
 
     
