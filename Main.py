@@ -6,11 +6,14 @@ from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import Normalizer, StandardScaler, LabelEncoder, OneHotEncoder
 from sklearn import metrics
 import matplotlib.pyplot as plt
+import seaborn as sns
+import category_encoders as ce
 
 submission_file = "tcd ml 2019-20 income prediction submission file.csv"
 
 
 #pd.set_option('display.max_rows', None)
+pd.set_option('display.max_columns', None)
 
 WRITE = 0
 
@@ -24,6 +27,8 @@ def check_for_nulls(df):
 
 
 def preprocess_data(data):
+    
+    target_key = data.columns[-1]
 
     #----- Processing Year -----
     X = data["Year of Record"].values.reshape(-1, 1)
@@ -65,10 +70,19 @@ def preprocess_data(data):
     data.drop("Hair Color", axis=1, inplace = True)
     data = pd.concat([data,encoded_hair], axis=1)
 
+
     #----- Processing Profession ----- 
     #Most frequent takes too long, forward fill instead
     data["Profession"] = data["Profession"].fillna("Ffill")
+    
+    #Target encoding profession and country
+    data1 = data.drop(target_key, axis = 1)
+    ce_target = ce.TargetEncoder(cols=['Profession','Country'])
 
+    ce_target.fit(data1, data[target_key])
+    data1 = ce_target.transform(data1, data["Income in EUR"])
+    
+    data = pd.concat([data1, data[target_key]], axis = 1)
 
     #----- Processing Gender -----
     X = data["Gender"].values.reshape(-1, 1)
@@ -104,12 +118,7 @@ def preprocess_data(data):
     height_imputer=SimpleImputer(strategy="mean")
     data["Body Height [cm]"] = height_imputer.fit_transform(X)
 
-    #print(data["Gender"])
-
-    #----- Processing city size -----
-    #X = data["Size of City"].values.reshape(-1, 1)
-    #scaler = Normalizer().fit(X)
-    #data["Size of City"] = scaler.fit_transform(X)
+    #print(data)
 
     return data
 
@@ -139,10 +148,16 @@ def multi_train(X, y):
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
 
+    scaler = Normalizer()
+    X_train = scaler.fit_transform(X_train)
+    X_test = scaler.transform(X_test)
+
+    #print(X_train)
     regressor = LinearRegression()
     regressor.fit(X_train, y_train)
 
-    y_pred = cross_val_predict(regressor, X_test, y_test, cv=10)
+    y_pred = cross_val_predict(regressor,X_test, y_test,cv=10)
+    #y_pred = regressor.predict(X_test)
     print('Mean Squared Error:', metrics.mean_squared_error(y_test, y_pred))  
     print('Root Mean Squared Error:', np.sqrt(metrics.mean_squared_error(y_test, y_pred)))
 
@@ -155,10 +170,12 @@ def main():
     submission_data = pd.read_csv("test.csv", index_col="Instance")
     #check_for_nulls(submission_data)
     processed_training_data = preprocess_data(training_data)
-    check_for_nulls(processed_training_data)
-    #print(processed_training_data)
+    #processed_submission_data = preprocess_data(submission_data)
+    #check_for_nulls(processed_submission_data)
 
     #-------------Start of the actual training --------------- 
+
+    '''
     print("Age vs income")
     X = processed_training_data["Age"].values.reshape(-1, 1)
     y = processed_training_data["Income in EUR"].values.reshape(-1, 1)
@@ -166,11 +183,10 @@ def main():
 
 
     '''
-    print("Age, Height and City vs Income")
-    X = processed_training_data[["Age", "Body Height [cm]", "Size of City"]].values
+    X = processed_training_data.values
     y = processed_training_data["Income in EUR"].values
     y_pred = multi_train(X, y)
-    '''
+
 
     if(WRITE):
         submission_data = pd.read_csv(submission_file, index_col="Instance")
@@ -178,23 +194,7 @@ def main():
         print(submission_data)
         submission_data.to_csv(submission_file)
 
-  
+    
 
-    #---------- Multi variable regressions ----------
-    '''
-    X = training_data[["Age","Size of City","Body Height [cm]"]].values
-    y = training_data["Income in EUR"].values
-
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
-
-    regressor = LinearRegression()
-    regressor.fit(X_train,y_train)
-
-    print(regressor.coef_)
-    y_pred = regressor.predict(X_test)
-
-    print('Mean Squared Error:', metrics.mean_squared_error(y_test, y_pred))  
-    print('Root Mean Squared Error:', np.sqrt(metrics.mean_squared_error(y_test, y_pred)))
-    '''
 if __name__ == "__main__":
     main()
