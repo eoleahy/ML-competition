@@ -15,6 +15,8 @@ submission_file = "tcd ml 2019-20 income prediction submission file.csv"
 #pd.set_option('display.max_rows', None)
 pd.set_option('display.max_columns', None)
 
+training_income=""
+
 WRITE = 0
 
 def check_for_nulls(df):    
@@ -29,6 +31,8 @@ def check_for_nulls(df):
 def preprocess_data(data):
     
     target_key = data.columns[-1]
+    
+    #print("TRAINING INCOME {}".format(training_income))
 
     #----- Processing Year -----
     X = data["Year of Record"].values.reshape(-1, 1)
@@ -79,9 +83,10 @@ def preprocess_data(data):
     data1 = data.drop(target_key, axis = 1)
     ce_target = ce.TargetEncoder(cols=['Profession','Country'])
 
-    ce_target.fit(data1, data[target_key])
-    data1 = ce_target.transform(data1, data["Income in EUR"])
-    
+    #print(training_income)
+    ce_target.fit(data1, training_income)
+    data1 = ce_target.transform(data1, training_income)
+    print(data1)
     data = pd.concat([data1, data[target_key]], axis = 1)
 
     #----- Processing Gender -----
@@ -168,21 +173,18 @@ def main():
     #headings = training_data.columns
     training_data = pd.read_csv("training.csv", index_col="Instance")
     submission_data = pd.read_csv("test.csv", index_col="Instance")
+    global training_income
+    training_income = training_data["Income in EUR"]
     #check_for_nulls(submission_data)
     processed_training_data = preprocess_data(training_data)
-    #processed_submission_data = preprocess_data(submission_data)
+    training_income = training_income[:73230]
+    processed_submission_data = preprocess_data(submission_data)
     #check_for_nulls(processed_submission_data)
+    #print(processed_submission_data)
 
     #-------------Start of the actual training --------------- 
 
-    '''
-    print("Age vs income")
-    X = processed_training_data["Age"].values.reshape(-1, 1)
-    y = processed_training_data["Income in EUR"].values.reshape(-1, 1)
-    y_pred = train(X, y)
 
-
-    '''
     X = processed_training_data.values
     y = processed_training_data["Income in EUR"].values
     y_pred = multi_train(X, y)
