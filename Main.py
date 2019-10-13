@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import train_test_split,cross_val_predict
+from sklearn.feature_selection import SelectKBest, chi2, RFE
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import Normalizer, StandardScaler, LabelEncoder, OneHotEncoder
 from sklearn import metrics
@@ -12,7 +13,7 @@ import category_encoders as ce
 submission_file = "tcd ml 2019-20 income prediction submission file.csv"
 
 
-pd.set_option('display.max_rows', None)
+pd.set_option('display.max_rows', 100)
 pd.set_option('display.max_columns', None)
 
 training_income=""
@@ -48,11 +49,17 @@ def preprocess_data(data):
                                 
     data["University Degree"] = uni_imputer.fit_transform(X)
 
-    uni_labelencoder = LabelEncoder()
-    data["University Degree"] = uni_labelencoder.fit_transform(data["University Degree"])
-    
+
+    #uni_labelencoder = LabelEncoder()
+    #data["University Degree"] = uni_labelencoder.fit_transform(data["University Degree"])
+
+    encoded_degree = pd.get_dummies(data["University Degree"], prefix='degree') 
+    data.drop("University Degree", axis=1, inplace = True)
+    data = pd.concat([data,encoded_degree], axis=1)
     
     #----- Processing Hair-----
+    data.drop("Hair Color", axis=1, inplace = True)
+    '''
     X = data["Hair Color"].values.reshape(-1 ,1)
     hair_imputer = SimpleImputer(strategy="constant", fill_value="Other")#Imputer for empty cells
     X = hair_imputer.fit_transform(X)
@@ -68,10 +75,10 @@ def preprocess_data(data):
     X = hair_imputer.fit_transform(X)
     data["Hair Color"] = X    
     
-    encoded_hair = pd.get_dummies(data["Hair Color"], prefix='hair') 
+    encoded_hair = pd.get_dummies(data["Hair Color"], prefix='hair', drop_first=True) 
     data.drop("Hair Color", axis=1, inplace = True)
     data = pd.concat([data,encoded_hair], axis=1)
-
+    '''
     #----- Processing Gender -----
     X = data["Gender"].values.reshape(-1, 1)
     gender_imputer = SimpleImputer(strategy="most_frequent")#Imputer for empty cells
@@ -90,7 +97,7 @@ def preprocess_data(data):
     data["Gender"] = X
    
     #print(data["Gender"].unique())
-    encoded_gender = pd.get_dummies(data["Gender"], prefix='gender') 
+    encoded_gender = pd.get_dummies(data["Gender"], prefix='gender',drop_first=True) 
     data.drop("Gender", axis=1, inplace = True)
     data = pd.concat([data,encoded_gender], axis=1)
 
@@ -114,6 +121,8 @@ def preprocess_data(data):
 
     #print(data)
 
+    data.drop("Wears Glasses", axis=1, inplace = True)
+
     return data
 
 def targEncode(training, test, target):
@@ -134,47 +143,69 @@ def targEncode(training, test, target):
     test = pd.concat([test1, test["Income"]], axis = 1)
 
     #print(training)
-    scaler = Normalizer()
-    training["Profession"] = scaler.fit_transform(training["Profession"].values.reshape(-1,1))
-    test["Profession"] = scaler.fit_transform(test["Profession"].values.reshape(-1,1))
-
-    scaler = Normalizer()
-    training["Country"] = scaler.fit_transform(training["Country"].values.reshape(-1,1))
-    test["Country"] = scaler.fit_transform(test["Country"].values.reshape(-1, 1))
-
     
+    #training.drop("Profession", axis= 1, inplace=True)
+    #test.drop("Profession",axis= 1, inplace=True)
+
+    #training.drop("Country", axis= 1, inplace=True)
+    #test.drop("Country",axis= 1, inplace=True)
+
+    scaler = StandardScaler()
+    training["Profession"] = scaler.fit_transform(training["Profession"].values.reshape(-1,1))
+    test["Profession"] = scaler.transform(test["Profession"].values.reshape(-1,1))
+
+    scaler = StandardScaler()
+    training["Age"] = scaler.fit_transform(training["Age"].values.reshape(-1,1))
+    test["Age"] = scaler.transform(test["Age"].values.reshape(-1,1))
+
+    scaler = StandardScaler()
+    training["Country"] = scaler.fit_transform(training["Country"].values.reshape(-1,1))
+    test["Country"] = scaler.transform(test["Country"].values.reshape(-1, 1))
+
+    scaler = StandardScaler()
+    training["Size of City"] = scaler.fit_transform(training["Size of City"].values.reshape(-1,1))
+    test["Size of City"] = scaler.transform(test["Size of City"].values.reshape(-1,1))
+
+    scaler = StandardScaler()
+    training["Year of Record"] = scaler.fit_transform(training["Year of Record"].values.reshape(-1,1))
+    test["Year of Record"] = scaler.transform(test["Year of Record"].values.reshape(-1, 1))
+
+    scaler = StandardScaler()
+    training["Body Height [cm]"] = scaler.fit_transform(training["Body Height [cm]"].values.reshape(-1,1))
+    test["Body Height [cm]"] = scaler.transform(test["Body Height [cm]"].values.reshape(-1,1))
+    
+    print(training)
+    print(test)
     return(training, test)
 
 def multi_train(X, y, X_submit):
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
 
-    scaler = Normalizer()
-    X_train = scaler.fit_transform(X_train)
-    X_test = scaler.transform(X_test)
 
-    #print(X_train)
+
     regressor = LinearRegression()
     regressor.fit(X_train, y_train)
 
-    '''
+    
     y_pred = cross_val_predict(regressor, X_test, y_test,cv=10)
     #y_pred = regressor.predict(X_test)
     print('Mean Squared Error:', metrics.mean_squared_error(y_test, y_pred))  
     print('Root Mean Squared Error:', np.sqrt(metrics.mean_squared_error(y_test, y_pred)))
-    '''
+    
 
 
-    scaler = Normalizer()
-    X_submit1 = scaler.fit_transform(X_submit)
+    #scaler = StandardScaler()
+    #X_submit1 = scaler.fit_transform(X_submit)
 
-    y_pred1 = regressor.predict(X_submit1)
+    y_pred1 = regressor.predict(X_submit)
 
     print("Submission test: ")
     print('Mean Squared Error:', metrics.mean_squared_error(y[:73230], y_pred1))  
     print('Root Mean Squared Error:', np.sqrt(metrics.mean_squared_error(y[:73230], y_pred1)))
     
     return y_pred1
+  
 
 def main():
 
@@ -196,6 +227,7 @@ def main():
     #-------------Start of the actual training --------------- 
 
     y = processed_training_data["Income in EUR"].values
+    #print(processed_training_data.drop("Income in EUR", axis = 1).columns)
     X = (processed_training_data.drop("Income in EUR", axis = 1)).values
     X_submit = (processed_submission_data.drop("Income", axis = 1))
 
