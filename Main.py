@@ -109,7 +109,7 @@ def targEncode(training, test, col, target):
 
     return(training, test)
 
-def multi_train(X, y, X_submit):
+def train(X, y, X_submit):
 
     print("Training model...")
 
@@ -176,7 +176,7 @@ def main():
     y = processed_training_data["Income in EUR"].values
     X = (processed_training_data.drop("Income in EUR", axis = 1)).values
     X_submit = (processed_submission_data.drop("Income", axis = 1)).values
-    y_pred = multi_train(X, y, X_submit)
+    y_pred = train(X, y, X_submit)
 
 
     if(WRITE):
