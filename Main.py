@@ -51,7 +51,7 @@ def preprocess_data(data):
                                 
     data["University Degree"] = uni_imputer.fit_transform(X)
 
-    encoded_degree = pd.get_dummies(data["University Degree"], prefix='degree') 
+    encoded_degree = pd.get_dummies(data["University Degree"], prefix='degree', drop_first=True) 
     data.drop("University Degree", axis=1, inplace = True)
     data = pd.concat([data,encoded_degree], axis=1)
 
@@ -87,12 +87,36 @@ def preprocess_data(data):
     data["Profession"] = data["Profession"].fillna("Ffill")
     data["Country"] = data["Country"].fillna("Ffill")
 
+    #----- Processing Hair -----
+    '''
+    X = data["Hair Color"].values.reshape(-1, 1)
+    hair_imputer = SimpleImputer(strategy="constant", fill_value="Other") #Imputer for empty cells
+    X = hair_imputer.fit_transform(X)
+    hair_imputer = SimpleImputer(missing_values="0",
+                                strategy="constant",  
+                                fill_value="Other")#Imputer for 0 cells
+    X = hair_imputer.fit_transform(X)
+    hair_imputer = SimpleImputer(missing_values="Unknown",
+                                strategy="constant",  
+                                fill_value="Other")#Imputer for 0 cells
+    X = hair_imputer.fit_transform(X)
+
+    data["Hair Color"] = X
+
+    encoded_hair = pd.get_dummies(data["Hair Color"], prefix='hair',drop_first = True) 
+    data.drop("Hair Color", axis=1, inplace = True)
+    data = pd.concat([data,encoded_hair], axis=1)
+
+    '''
+
+
     #----- Dropping low correlation data -----
     data.drop("Wears Glasses", axis=1, inplace = True)
-    data.drop("Body Height [cm]", axis=1, inplace = True)
+    #data.drop("Body Height [cm]", axis=1, inplace = True)
     data.drop("Hair Color", axis=1, inplace = True)
 
     return data
+    
 
 def targEncode(training, test, col, target):
 
@@ -111,6 +135,7 @@ def targEncode(training, test, col, target):
 
 def train(X, y, X_submit):
 
+    #input("Continue?")
     print("Training model...")
 
     scaler = StandardScaler()
@@ -121,10 +146,10 @@ def train(X, y, X_submit):
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
 
-    regressor = RandomForestRegressor(n_estimators=10, random_state = 0)
+    regressor = RandomForestRegressor(n_estimators=20, random_state = 0)
     regressor.fit(X_train, y_train)
 
-    
+    print("Running predictions...")
     y_pred = regressor.predict(X_test)
     print("Test:")
     print('Mean Squared Error:', metrics.mean_squared_error(y_test, y_pred))  
@@ -180,6 +205,7 @@ def main():
 
 
     if(WRITE):
+        print("Writing to file...")
         submission_data = pd.read_csv(submission_file, index_col="Instance")
         submission_data["Income"] = y_pred
         #print(submission_data)
