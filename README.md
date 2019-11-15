@@ -3,5 +3,7 @@
 
 
 -pip install sklearn
+
 -pip install pandas
+
 -pip install matplotlib
