@@ -2,6 +2,6 @@
 4th year CS ML competition
 
 
-pip install sklearn
-pip install pandas
-pip install matplotlib
+-pip install sklearn
+-pip install pandas
+-pip install matplotlib
